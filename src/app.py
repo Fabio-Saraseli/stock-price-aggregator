@@ -19,10 +19,19 @@ if not api_key:
     )
 
 
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+database_url = os.getenv(
     "DATABASE_URL",
     "sqlite:///stock_prices.db",
 )
+
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace(
+        "postgres://",
+        "postgresql://",
+        1,
+    )
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -218,6 +227,7 @@ def stock_history(symbol):
             for item in prices
         ]
     )
+
     
 @app.route("/api/stocks/<symbol>/analysis", methods=["GET"])
 def stock_analysis(symbol):
