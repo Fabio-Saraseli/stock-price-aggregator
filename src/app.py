@@ -218,6 +218,38 @@ def stock_history(symbol):
             for item in prices
         ]
     )
+    
+@app.route("/api/stocks/<symbol>/analysis", methods=["GET"])
+def stock_analysis(symbol):
+    symbol = symbol.strip().upper()
+
+    prices = (
+        StockPrice.query
+        .filter_by(symbol=symbol)
+        .order_by(StockPrice.fetched_at.asc())
+        .all()
+    )
+
+    if not prices:
+        return jsonify({
+            "error": f"No stored prices found for {symbol}"
+        }), 404
+
+    values = [item.price for item in prices]
+
+    average_price = sum(values) / len(values)
+    minimum_price = min(values)
+    maximum_price = max(values)
+    price_range = maximum_price - minimum_price
+
+    return jsonify({
+        "symbol": symbol,
+        "number_of_observations": len(values),
+        "average_price": round(average_price, 2),
+        "minimum_price": round(minimum_price, 2),
+        "maximum_price": round(maximum_price, 2),
+        "price_range": round(price_range, 2),
+    })
 
 
 if __name__ == "__main__":
