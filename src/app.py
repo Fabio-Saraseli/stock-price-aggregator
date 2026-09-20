@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime
 
 import requests
@@ -6,10 +7,18 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from prometheus_client import Counter
 
 load_dotenv()
 
 app = Flask(__name__)
+
+APP_START_TIME = time.time()
+
+REQUEST_COUNT = Counter(
+    "stock_price_aggregator_http_requests_total",
+    "Total number of HTTP requests received",
+)
 
 api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
 
@@ -68,6 +77,37 @@ class StockPrice(db.Model):
         nullable=False,
         default=datetime.now,
     )
+    
+    
+@app.before_request
+def count_request():
+    if request.endpoint != "metrics":
+        REQUEST_COUNT.inc()
+        
+        
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "ok"
+    }), 200
+
+
+@app.route("/metrics", methods=["GET"])
+def metrics():
+    uptime_seconds = time.time() - APP_START_TIME
+    total_requests = REQUEST_COUNT._value.get()
+
+    requests_per_second = (
+        total_requests / uptime_seconds
+        if uptime_seconds > 0
+        else 0
+    )
+
+    return jsonify({
+        "total_requests": int(total_requests),
+        "uptime_seconds": round(uptime_seconds, 2),
+        "requests_per_second": round(requests_per_second, 4),
+    }), 200
 
 
 @app.route("/")
